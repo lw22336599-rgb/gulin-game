@@ -4,378 +4,192 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>古蔺平行小城</title>
-<script>p5.disableFriendlyErrors=true;</script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.11.3/p5.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{width:100%;height:100%;overflow:hidden;background:#1a1a2e;font-family:sans-serif}
-#loading{position:fixed;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#1a1a2e;color:#e8d5b7;z-index:100}
-#loading .title{font-size:28px;font-weight:bold;margin-bottom:10px;color:#f0c27a}
-#loading .sub{font-size:14px;color:#999;margin-bottom:20px}
-.spinner{width:40px;height:40px;border:3px solid #333;border-top-color:#f0c27a;border-radius:50%;animation:spin 1s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-#info{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.7);color:#fff;padding:8px 16px;border-radius:20px;font-size:12px;pointer-events:none;z-index:10;display:none}
-#controls{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);display:flex;gap:10px;z-index:10}
-#controls button{width:50px;height:50px;border-radius:25px;border:none;background:rgba(0,0,0,0.5);color:#fff;font-size:20px;cursor:pointer;touch-action:none}
-#controls button:active{background:rgba(240,194,122,0.5)}
+html,body{width:100%;height:100%;overflow:hidden;font-family:"PingFang SC","Microsoft YaHei",sans-serif}
+#map{width:100%;height:100%}
+#header{position:fixed;top:0;left:0;right:0;z-index:1000;background:linear-gradient(180deg,rgba(26,26,46,0.95) 0%,rgba(26,26,46,0) 100%);padding:12px 16px 20px;pointer-events:none}
+#header h1{color:#f0c27a;font-size:18px;font-weight:bold;text-shadow:0 1px 4px rgba(0,0,0,0.5)}
+#header p{color:#ccc;font-size:11px;margin-top:2px}
+#player{position:fixed;z-index:500;pointer-events:none;font-size:24px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));display:none}
+#controls{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:1000;display:flex;gap:8px;background:rgba(0,0,0,0.5);backdrop-filter:blur(10px);padding:8px 12px;border-radius:20px}
+#controls button{background:rgba(255,255,255,0.15);border:none;color:#fff;width:40px;height:40px;border-radius:20px;font-size:18px;cursor:pointer;touch-action:none}
+#controls button:active{background:rgba(240,194,122,0.3)}
+#controls .info-btn{background:rgba(240,194,122,0.2);width:auto;padding:0 16px;font-size:12px;color:#f0c27a}
+#popup{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:1000;background:rgba(0,0,0,0.8);backdrop-filter:blur(10px);color:#fff;padding:10px 20px;border-radius:12px;font-size:13px;text-align:center;display:none;max-width:80%;pointer-events:none}
+#popup .name{color:#f0c27a;font-weight:bold;font-size:15px}
+#popup .sub{color:#aaa;font-size:11px;margin-top:2px}
+.custom-marker{background:#f0c27a;border:2px solid #fff;border-radius:50%;width:12px;height:12px;box-shadow:0 2px 6px rgba(0,0,0,0.3)}
+.custom-marker.highlight{background:#ff6b6b;width:16px;height:16px;animation:pulse 2s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,107,107,0.7)}70%{box-shadow:0 0 0 10px rgba(255,107,107,0)}100%{box-shadow:0 0 0 0 rgba(255,107,107,0)}}
 </style>
 </head>
 <body>
-<div id="loading">
-  <div class="title">古蔺平行小城</div>
-  <div class="sub">加载地图数据中...</div>
-  <div class="spinner"></div>
+<div id="map"></div>
+<div id="header">
+  <h1>🏘️ 古蔺平行小城</h1>
+  <p>四川省泸州市古蔺县 · 地图数据 © OpenStreetMap 贡献者</p>
 </div>
-<div id="info">古蔺县 · 四川省泸州市</div>
+<div id="player">🚗</div>
+<div id="popup"></div>
 <div id="controls">
-  <button id="btnUp">▲</button>
-  <div style="display:flex;flex-direction:column;gap:10px">
-    <button id="btnLeft">◀</button>
-    <button id="btnRight">▶</button>
-  </div>
-  <button id="btnDown">▼</button>
+  <button id="btnGoto">📍</button>
+  <button id="btnLandmark">🏛️</button>
+  <button class="info-btn" id="btnInfo">已加载</button>
+  <button id="btnPlus">＋</button>
+  <button id="btnMinus">－</button>
 </div>
 <script>
-let gameData, roads=[], buildings=[], waterways=[];
-let camX=0, camY=0, camScale=0.5;
-let targetX=0, targetY=0;
-let isDragging=false, dragStartX, dragStartY, camStartX, camStartY;
-let hoveredRoad=null, hoveredBuilding=null;
-let autoMove=false, autoTargetX=0, autoTargetY=0;
-let playerX=0, playerY=0;
-let playerAngle=0;
+// 古蔺县中心
+const center = [27.967, 105.931];
+const zoom = 13;
 
-// Road colors by type
-const roadColors = {
-  motorway: [255,200,50], motorway_link: [255,200,50],
-  trunk: [255,180,50],
-  primary: [255,160,80], primary_link: [255,160,80],
-  secondary: [255,200,150], secondary_link: [255,200,150],
-  tertiary: [220,200,170],
-  residential: [200,190,170],
-  unclassified: [180,180,160],
-  service: [160,160,150],
-  footway: [200,180,150],
-  track: [180,160,130],
-  pedestrian: [220,210,190],
-  default: [200,180,150]
+// 初始化地图
+const map = L.map('map', {
+  center: center,
+  zoom: zoom,
+  zoomControl: false,
+  attributionControl: false
+});
+
+// 使用CartoDB免费底图（比OSM默认好看）
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+  subdomains: 'abcd',
+  maxZoom: 19,
+  minZoom: 10
+}).addTo(map);
+
+// 添加古蔺县边界（从OSM数据提取的简化边界）
+// 实际开发中从OSM拉取真实边界
+const gulinBounds = L.polygon([
+  [28.12, 105.75],
+  [28.10, 106.05],
+  [27.85, 106.08],
+  [27.90, 105.78]
+], {
+  color: '#f0c27a',
+  weight: 2,
+  fill: true,
+  fillColor: '#f0c27a',
+  fillOpacity: 0.05,
+  dashArray: '5,5'
+}).addTo(map);
+
+// 关键地标数据
+const landmarks = [
+  { name: '古蔺县人民政府', pos: [27.940, 105.812], type: 'government', desc: '县城中心' },
+  { name: '古蔺新体育中心', pos: [27.948, 105.808], type: 'sports', desc: '西区新城' },
+  { name: '天立酒街', pos: [27.938, 105.815], type: 'wine', desc: '酱酒文化街区' },
+  { name: '太平渡', pos: [28.068, 105.942], type: 'red', desc: '红军四渡赤水纪念地' },
+  { name: '二郎镇', pos: [28.038, 106.018], type: 'wine', desc: '酱酒名镇' },
+  { name: '黄荆老林', pos: [28.080, 105.783], type: 'nature', desc: '原始森林景区' },
+  { name: '兴隆公园', pos: [27.935, 105.805], type: 'park', desc: '市民休闲公园' },
+  { name: '古蔺汽车站', pos: [27.938, 105.820], type: 'transport', desc: '县城客运中心' },
+  { name: '茅溪镇', pos: [27.930, 106.068], type: 'wine', desc: '酱酒仓储物流基地' },
+  { name: '红军街', pos: [28.040, 106.020], type: 'red', desc: '二郎镇红色街区' }
+];
+
+// 地标图标映射
+const iconMap = {
+  government: '🏛️', sports: '🏟️', wine: '🍶', red: '⭐',
+  nature: '🌲', park: '🌳', transport: '🚌'
 };
 
-function preload() {
-  // Load the game data
-  gameData = loadJSON('gulin_game_data.json');
-}
+const colorMap = {
+  government: '#f0c27a', sports: '#4ecdc4', wine: '#ff6b6b',
+  red: '#ff4757', nature: '#2ed573', park: '#7bed9f', transport: '#70a1ff'
+};
 
-function setup() {
-  createCanvas(windowWidth, windowHeight, WEBGL);
-  colorMode(RGB, 255);
+// 添加地标标记
+const markers = [];
+landmarks.forEach(lm => {
+  const marker = L.circleMarker(lm.pos, {
+    radius: 8,
+    fillColor: colorMap[lm.type] || '#f0c27a',
+    color: '#fff',
+    weight: 2,
+    opacity: 1,
+    fillOpacity: 0.9
+  }).addTo(map);
   
-  document.getElementById('loading').style.display = 'none';
-  document.getElementById('info').style.display = 'block';
-  
-  if (gameData && gameData.roads) {
-    roads = gameData.roads;
-    buildings = gameData.buildings || [];
-    waterways = gameData.waterways || [];
-  }
-  
-  // Camera controls
-  canvas.addEventListener('mousedown', (e) => {
-    isDragging = true;
-    dragStartX = e.clientX;
-    dragStartY = e.clientY;
-    camStartX = camX;
-    camStartY = camY;
-    autoMove = false;
+  marker.bindTooltip(`${iconMap[lm.type] || '📍'} ${lm.name}`, {
+    direction: 'top',
+    offset: [0, -8]
   });
   
-  canvas.addEventListener('mousemove', (e) => {
-    if (isDragging) {
-      let dx = (e.clientX - dragStartX) / camScale;
-      let dy = (e.clientY - dragStartY) / camScale;
-      camX = camStartX - dx;
-      camY = camStartY - dy;
-      targetX = camX;
-      targetY = camY;
-    }
+  marker.on('click', () => {
+    showPopup(lm);
   });
   
-  canvas.addEventListener('mouseup', () => { isDragging = false; });
-  canvas.addEventListener('mouseleave', () => { isDragging = false; });
-  
-  // Touch support
-  let lastTouchDist = 0;
-  canvas.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    if (e.touches.length === 1) {
-      isDragging = true;
-      dragStartX = e.touches[0].clientX;
-      dragStartY = e.touches[0].clientY;
-      camStartX = camX;
-      camStartY = camY;
-    }
-  }, {passive: false});
-  
-  canvas.addEventListener('touchmove', (e) => {
-    e.preventDefault();
-    if (e.touches.length === 1 && isDragging) {
-      let dx = (e.touches[0].clientX - dragStartX) / camScale;
-      let dy = (e.touches[0].clientY - dragStartY) / camScale;
-      camX = camStartX - dx;
-      camY = camStartY - dy;
-      targetX = camX;
-      targetY = camY;
-    }
-  }, {passive: false});
-  
-  canvas.addEventListener('touchend', () => { isDragging = false; });
-  
-  // Mouse wheel zoom
-  canvas.addEventListener('wheel', (e) => {
-    camScale *= (e.deltaY > 0 ? 0.9 : 1.1);
-    camScale = constrain(camScale, 0.05, 2);
-    e.preventDefault();
-  }, {passive: false});
-  
-  // Button controls
-  const btnSpeed = 20 / camScale;
-  document.getElementById('btnUp').addEventListener('click', () => { camY -= btnSpeed; targetY = camY; });
-  document.getElementById('btnDown').addEventListener('click', () => { camY += btnSpeed; targetY = camY; });
-  document.getElementById('btnLeft').addEventListener('click', () => { camX -= btnSpeed; targetX = camX; });
-  document.getElementById('btnRight').addEventListener('click', () => { camX += btnSpeed; targetX = camX; });
-  
-  // Keyboard
-  window.addEventListener('keydown', (e) => {
-    const speed = 15 / camScale;
-    if (e.key === 'ArrowUp' || e.key === 'w') { camY -= speed; targetY = camY; }
-    if (e.key === 'ArrowDown' || e.key === 's') { camY += speed; targetY = camY; }
-    if (e.key === 'ArrowLeft' || e.key === 'a') { camX -= speed; targetX = camX; }
-    if (e.key === 'ArrowRight' || e.key === 'd') { camX += speed; targetX = camX; }
-    if (e.key === '+' || e.key === '=') { camScale *= 1.2; }
-    if (e.key === '-') { camScale *= 0.8; }
-  });
-  
-  // Click to move player
-  canvas.addEventListener('click', (e) => {
-    if (!isDragging) {
-      let cx = (e.clientX - width/2) / camScale - camX;
-      let cy = (e.clientY - height/2) / camScale - camY;
-      // Convert screen to world
-      targetX = -cx;
-      targetY = -cy;
-      autoMove = true;
-      autoTargetX = targetX;
-      autoTargetY = targetY;
-    }
-  });
+  markers.push(marker);
+});
+
+// 弹出信息
+function showPopup(lm) {
+  const popup = document.getElementById('popup');
+  popup.innerHTML = `
+    <div class="name">${iconMap[lm.type] || '📍'} ${lm.name}</div>
+    <div class="sub">${lm.desc}</div>
+  `;
+  popup.style.display = 'block';
+  setTimeout(() => { popup.style.display = 'none'; }, 3000);
 }
 
-function draw() {
-  // Smooth camera
-  if (!isDragging) {
-    camX = lerp(camX, targetX, 0.1);
-    camY = lerp(camY, targetY, 0.1);
-  }
-  
-  // Background - gradient sky
-  background(26, 26, 46);
-  
-  // Apply camera
-  translate(camX * camScale, camY * camScale);
-  scale(camScale);
-  
-  // Draw terrain
-  drawTerrain();
-  
-  // Draw waterways
-  drawWaterways();
-  
-  // Draw roads
-  drawRoads();
-  
-  // Draw buildings
-  drawBuildings();
-  
-  // Draw player
-  drawPlayer();
-  
-  // Hover info
-  if (hoveredRoad && hoveredRoad.n) {
-    push();
-    translate(-camX * camScale, -camY * camScale);
-    fill(255, 220, 150);
-    noStroke();
-    textAlign(CENTER);
-    textSize(14);
-    text(hoveredRoad.n, 0, -height/2 + 30);
-    pop();
-  }
-  
-  // FPS
-  push();
-  translate(-camX * camScale, -camY * camScale);
-  fill(100);
-  noStroke();
-  textSize(10);
-  textAlign(LEFT);
-  text(`道路:${roads.length} 建筑:${buildings.length}`, -width/2 + 10, -height/2 + 20);
-  pop();
+// 玩家定位
+let playerPos = center;
+let playerMarker = null;
+
+function updatePlayer() {
+  if (playerMarker) map.removeLayer(playerMarker);
+  playerMarker = L.circleMarker(playerPos, {
+    radius: 10,
+    fillColor: '#ffd700',
+    color: '#fff',
+    weight: 3,
+    fillOpacity: 0.9
+  }).addTo(map);
+  playerMarker.bindTooltip('🚗 你在这里', { direction: 'top' });
 }
 
-function drawTerrain() {
-  fill(30, 40, 25);
-  noStroke();
-  // Simple terrain square
-  rectMode(CENTER);
-  rect(0, 0, 20000, 20000);
-  rectMode(CORNER);
-}
+// 显示地图已加载
+document.getElementById('btnInfo').textContent = `✅ 加载完成`;
 
-function drawWaterways() {
-  noFill();
-  stroke(60, 100, 120);
-  strokeWeight(3);
-  for (let w of waterways) {
-    if (w.c && w.c.length > 1) {
-      beginShape();
-      for (let p of w.c) {
-        vertex(p[0], p[1]);
-      }
-      endShape();
-    }
-  }
-}
+// 控件事件
+document.getElementById('btnGoto').addEventListener('click', () => {
+  // 模拟定位到县城中心
+  playerPos = [center[0] + (Math.random()-0.5)*0.02, center[1] + (Math.random()-0.5)*0.02];
+  updatePlayer();
+  map.flyTo(playerPos, 15);
+});
 
-function drawRoads() {
-  hoveredRoad = null;
-  let mx = (mouseX - width/2) / camScale - camX;
-  let my = (mouseY - height/2) / camScale - camY;
-  let hitDist = 5 / camScale;
-  
-  for (let r of roads) {
-    if (!r.c || r.c.length < 2) continue;
-    
-    let color = roadColors[r.t] || roadColors.default;
-    let w = getRoadWidth(r.t);
-    
-    stroke(color[0], color[1], color[2]);
-    strokeWeight(w);
-    noFill();
-    
-    beginShape();
-    for (let p of r.c) {
-      curveVertex(p[0], p[1]);
-    }
-    endShape();
-    
-    // Check hover
-    if (!isDragging) {
-      for (let i = 0; i < r.c.length - 1; i++) {
-        let dist = distToSegment(mx, my, r.c[i][0], r.c[i][1], r.c[i+1][0], r.c[i+1][1]);
-        if (dist < hitDist + w/2) {
-          hoveredRoad = r;
-          break;
-        }
-      }
-    }
-  }
-}
+document.getElementById('btnLandmark').addEventListener('click', () => {
+  // 随机跳转到一个地标
+  const lm = landmarks[Math.floor(Math.random() * landmarks.length)];
+  map.flyTo(lm.pos, 16);
+  setTimeout(() => showPopup(lm), 1000);
+});
 
-function drawBuildings() {
-  for (let b of buildings) {
-    let cx = b.x + b.w/2;
-    let cy = b.y + b.h/2;
-    
-    // Building floor
-    fill(60, 55, 45);
-    noStroke();
-    rect(b.x, b.y, b.w, b.h);
-    
-    // Building top (3D effect)
-    let height = b.w > 15 || b.h > 15 ? 10 : 5;
-    fill(75, 68, 55);
-    rect(b.x + 2, b.y - height, b.w - 4, height);
-    
-    // Roof
-    fill(85, 78, 62);
-    rect(b.x, b.y - height, b.w, b.h + height);
-    
-    // Named building
-    if (b.n) {
-      fill(255, 220, 150);
-      textSize(Math.min(Math.max(b.w / 3, 6), 10));
-      textAlign(CENTER);
-      text(b.n, cx, cy + 3);
-    }
-  }
-}
+document.getElementById('btnPlus').addEventListener('click', () => {
+  map.zoomIn();
+});
 
-function drawPlayer() {
-  // Player indicator
-  if (autoMove) {
-    let dx = autoTargetX - playerX;
-    let dy = autoTargetY - playerY;
-    let dist = sqrt(dx*dx + dy*dy);
-    if (dist > 5) {
-      playerX += dx / dist * 3;
-      playerY += dy / dist * 3;
-      playerAngle = atan2(dy, dx);
-    } else {
-      autoMove = false;
-    }
-  }
-  
-  push();
-  translate(playerX, playerY);
-  rotate(playerAngle);
-  
-  // Car body
-  fill(240, 194, 122);
-  noStroke();
-  rect(-8, -5, 16, 10, 3);
-  
-  // Direction indicator
-  fill(255, 255, 200);
-  triangle(10, -4, 10, 4, 16, 0);
-  
-  // Shadow
-  fill(0, 0, 0, 30);
-  ellipse(0, 6, 16, 5);
-  
-  pop();
-}
+document.getElementById('btnMinus').addEventListener('click', () => {
+  map.zoomOut();
+});
 
-function getRoadWidth(type) {
-  const widths = {
-    motorway: 6, motorway_link: 5,
-    trunk: 5,
-    primary: 4.5, primary_link: 4,
-    secondary: 4, secondary_link: 3.5,
-    tertiary: 3.5,
-    residential: 3,
-    unclassified: 3,
-    service: 2.5,
-    footway: 2,
-    track: 2,
-    pedestrian: 3,
-    default: 3
-  };
-  return widths[type] || widths.default;
-}
+// 键盘
+window.addEventListener('keydown', (e) => {
+  if (e.key === '+' || e.key === '=') map.zoomIn();
+  if (e.key === '-') map.zoomOut();
+  if (e.key === 'g') document.getElementById('btnGoto').click();
+  if (e.key === 'l') document.getElementById('btnLandmark').click();
+});
 
-function distToSegment(px, py, x1, y1, x2, y2) {
-  let dx = x2 - x1, dy = y2 - y1;
-  let lenSq = dx*dx + dy*dy;
-  if (lenSq === 0) return sqrt((px-x1)*(px-x1) + (py-y1)*(py-y1));
-  let t = ((px-x1)*dx + (py-y1)*dy) / lenSq;
-  t = constrain(t, 0, 1);
-  let cx = x1 + t*dx, cy = y1 + t*dy;
-  return sqrt((px-cx)*(px-cx) + (py-cy)*(py-cy));
-}
-
-function windowResized() {
-  resizeCanvas(windowWidth, windowHeight);
-}
+// 初始化
+updatePlayer();
 </script>
 </body>
 </html>
