@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>古蔺平行小城</title>
+<script>p5.disableFriendlyErrors=true;</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.11.3/p5.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#1a1a2e;font-family:sans-serif}
+#loading{position:fixed;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#1a1a2e;color:#e8d5b7;z-index:100}
+#loading .title{font-size:28px;font-weight:bold;margin-bottom:10px;color:#f0c27a}
+#loading .sub{font-size:14px;color:#999;margin-bottom:20px}
+.spinner{width:40px;height:40px;border:3px solid #333;border-top-color:#f0c27a;border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#info{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.7);color:#fff;padding:8px 16px;border-radius:20px;font-size:12px;pointer-events:none;z-index:10;display:none}
+#controls{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);display:flex;gap:10px;z-index:10}
+#controls button{width:50px;height:50px;border-radius:25px;border:none;background:rgba(0,0,0,0.5);color:#fff;font-size:20px;cursor:pointer;touch-action:none}
+#controls button:active{background:rgba(240,194,122,0.5)}
+</style>
+</head>
+<body>
+<div id="loading">
+  <div class="title">古蔺平行小城</div>
+  <div class="sub">加载地图数据中...</div>
+  <div class="spinner"></div>
+</div>
+<div id="info">古蔺县 · 四川省泸州市</div>
+<div id="controls">
+  <button id="btnUp">▲</button>
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <button id="btnLeft">◀</button>
+    <button id="btnRight">▶</button>
+  </div>
+  <button id="btnDown">▼</button>
+</div>
+<script>
+let gameData, roads=[], buildings=[], waterways=[];
+let camX=0, camY=0, camScale=0.5;
+let targetX=0, targetY=0;
+let isDragging=false, dragStartX, dragStartY, camStartX, camStartY;
+let hoveredRoad=null, hoveredBuilding=null;
+let autoMove=false, autoTargetX=0, autoTargetY=0;
+let playerX=0, playerY=0;
+let playerAngle=0;
+
+// Road colors by type
+const roadColors = {
+  motorway: [255,200,50], motorway_link: [255,200,50],
+  trunk: [255,180,50],
+  primary: [255,160,80], primary_link: [255,160,80],
+  secondary: [255,200,150], secondary_link: [255,200,150],
+  tertiary: [220,200,170],
+  residential: [200,190,170],
+  unclassified: [180,180,160],
+  service: [160,160,150],
+  footway: [200,180,150],
+  track: [180,160,130],
+  pedestrian: [220,210,190],
+  default: [200,180,150]
+};
+
+function preload() {
+  // Load the game data
+  gameData = loadJSON('gulin_game_data.json');
+}
+
+function setup() {
+  createCanvas(windowWidth, windowHeight, WEBGL);
+  colorMode(RGB, 255);
+  
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('info').style.display = 'block';
+  
+  if (gameData && gameData.roads) {
+    roads = gameData.roads;
+    buildings = gameData.buildings || [];
+    waterways = gameData.waterways || [];
+  }
+  
+  // Camera controls
+  canvas.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    camStartX = camX;
+    camStartY = camY;
+    autoMove = false;
+  });
+  
+  canvas.addEventListener('mousemove', (e) => {
+    if (isDragging) {
+      let dx = (e.clientX - dragStartX) / camScale;
+      let dy = (e.clientY - dragStartY) / camScale;
+      camX = camStartX - dx;
+      camY = camStartY - dy;
+      targetX = camX;
+      targetY = camY;
+    }
+  });
+  
+  canvas.addEventListener('mouseup', () => { isDragging = false; });
+  canvas.addEventListener('mouseleave', () => { isDragging = false; });
+  
+  // Touch support
+  let lastTouchDist = 0;
+  canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    if (e.touches.length === 1) {
+      isDragging = true;
+      dragStartX = e.touches[0].clientX;
+      dragStartY = e.touches[0].clientY;
+      camStartX = camX;
+      camStartY = camY;
+    }
+  }, {passive: false});
+  
+  canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    if (e.touches.length === 1 && isDragging) {
+      let dx = (e.touches[0].clientX - dragStartX) / camScale;
+      let dy = (e.touches[0].clientY - dragStartY) / camScale;
+      camX = camStartX - dx;
+      camY = camStartY - dy;
+      targetX = camX;
+      targetY = camY;
+    }
+  }, {passive: false});
+  
+  canvas.addEventListener('touchend', () => { isDragging = false; });
+  
+  // Mouse wheel zoom
+  canvas.addEventListener('wheel', (e) => {
+    camScale *= (e.deltaY > 0 ? 0.9 : 1.1);
+    camScale = constrain(camScale, 0.05, 2);
+    e.preventDefault();
+  }, {passive: false});
+  
+  // Button controls
+  const btnSpeed = 20 / camScale;
+  document.getElementById('btnUp').addEventListener('click', () => { camY -= btnSpeed; targetY = camY; });
+  document.getElementById('btnDown').addEventListener('click', () => { camY += btnSpeed; targetY = camY; });
+  document.getElementById('btnLeft').addEventListener('click', () => { camX -= btnSpeed; targetX = camX; });
+  document.getElementById('btnRight').addEventListener('click', () => { camX += btnSpeed; targetX = camX; });
+  
+  // Keyboard
+  window.addEventListener('keydown', (e) => {
+    const speed = 15 / camScale;
+    if (e.key === 'ArrowUp' || e.key === 'w') { camY -= speed; targetY = camY; }
+    if (e.key === 'ArrowDown' || e.key === 's') { camY += speed; targetY = camY; }
+    if (e.key === 'ArrowLeft' || e.key === 'a') { camX -= speed; targetX = camX; }
+    if (e.key === 'ArrowRight' || e.key === 'd') { camX += speed; targetX = camX; }
+    if (e.key === '+' || e.key === '=') { camScale *= 1.2; }
+    if (e.key === '-') { camScale *= 0.8; }
+  });
+  
+  // Click to move player
+  canvas.addEventListener('click', (e) => {
+    if (!isDragging) {
+      let cx = (e.clientX - width/2) / camScale - camX;
+      let cy = (e.clientY - height/2) / camScale - camY;
+      // Convert screen to world
+      targetX = -cx;
+      targetY = -cy;
+      autoMove = true;
+      autoTargetX = targetX;
+      autoTargetY = targetY;
+    }
+  });
+}
+
+function draw() {
+  // Smooth camera
+  if (!isDragging) {
+    camX = lerp(camX, targetX, 0.1);
+    camY = lerp(camY, targetY, 0.1);
+  }
+  
+  // Background - gradient sky
+  background(26, 26, 46);
+  
+  // Apply camera
+  translate(camX * camScale, camY * camScale);
+  scale(camScale);
+  
+  // Draw terrain
+  drawTerrain();
+  
+  // Draw waterways
+  drawWaterways();
+  
+  // Draw roads
+  drawRoads();
+  
+  // Draw buildings
+  drawBuildings();
+  
+  // Draw player
+  drawPlayer();
+  
+  // Hover info
+  if (hoveredRoad && hoveredRoad.n) {
+    push();
+    translate(-camX * camScale, -camY * camScale);
+    fill(255, 220, 150);
+    noStroke();
+    textAlign(CENTER);
+    textSize(14);
+    text(hoveredRoad.n, 0, -height/2 + 30);
+    pop();
+  }
+  
+  // FPS
+  push();
+  translate(-camX * camScale, -camY * camScale);
+  fill(100);
+  noStroke();
+  textSize(10);
+  textAlign(LEFT);
+  text(`道路:${roads.length} 建筑:${buildings.length}`, -width/2 + 10, -height/2 + 20);
+  pop();
+}
+
+function drawTerrain() {
+  fill(30, 40, 25);
+  noStroke();
+  // Simple terrain square
+  rectMode(CENTER);
+  rect(0, 0, 20000, 20000);
+  rectMode(CORNER);
+}
+
+function drawWaterways() {
+  noFill();
+  stroke(60, 100, 120);
+  strokeWeight(3);
+  for (let w of waterways) {
+    if (w.c && w.c.length > 1) {
+      beginShape();
+      for (let p of w.c) {
+        vertex(p[0], p[1]);
+      }
+      endShape();
+    }
+  }
+}
+
+function drawRoads() {
+  hoveredRoad = null;
+  let mx = (mouseX - width/2) / camScale - camX;
+  let my = (mouseY - height/2) / camScale - camY;
+  let hitDist = 5 / camScale;
+  
+  for (let r of roads) {
+    if (!r.c || r.c.length < 2) continue;
+    
+    let color = roadColors[r.t] || roadColors.default;
+    let w = getRoadWidth(r.t);
+    
+    stroke(color[0], color[1], color[2]);
+    strokeWeight(w);
+    noFill();
+    
+    beginShape();
+    for (let p of r.c) {
+      curveVertex(p[0], p[1]);
+    }
+    endShape();
+    
+    // Check hover
+    if (!isDragging) {
+      for (let i = 0; i < r.c.length - 1; i++) {
+        let dist = distToSegment(mx, my, r.c[i][0], r.c[i][1], r.c[i+1][0], r.c[i+1][1]);
+        if (dist < hitDist + w/2) {
+          hoveredRoad = r;
+          break;
+        }
+      }
+    }
+  }
+}
+
+function drawBuildings() {
+  for (let b of buildings) {
+    let cx = b.x + b.w/2;
+    let cy = b.y + b.h/2;
+    
+    // Building floor
+    fill(60, 55, 45);
+    noStroke();
+    rect(b.x, b.y, b.w, b.h);
+    
+    // Building top (3D effect)
+    let height = b.w > 15 || b.h > 15 ? 10 : 5;
+    fill(75, 68, 55);
+    rect(b.x + 2, b.y - height, b.w - 4, height);
+    
+    // Roof
+    fill(85, 78, 62);
+    rect(b.x, b.y - height, b.w, b.h + height);
+    
+    // Named building
+    if (b.n) {
+      fill(255, 220, 150);
+      textSize(Math.min(Math.max(b.w / 3, 6), 10));
+      textAlign(CENTER);
+      text(b.n, cx, cy + 3);
+    }
+  }
+}
+
+function drawPlayer() {
+  // Player indicator
+  if (autoMove) {
+    let dx = autoTargetX - playerX;
+    let dy = autoTargetY - playerY;
+    let dist = sqrt(dx*dx + dy*dy);
+    if (dist > 5) {
+      playerX += dx / dist * 3;
+      playerY += dy / dist * 3;
+      playerAngle = atan2(dy, dx);
+    } else {
+      autoMove = false;
+    }
+  }
+  
+  push();
+  translate(playerX, playerY);
+  rotate(playerAngle);
+  
+  // Car body
+  fill(240, 194, 122);
+  noStroke();
+  rect(-8, -5, 16, 10, 3);
+  
+  // Direction indicator
+  fill(255, 255, 200);
+  triangle(10, -4, 10, 4, 16, 0);
+  
+  // Shadow
+  fill(0, 0, 0, 30);
+  ellipse(0, 6, 16, 5);
+  
+  pop();
+}
+
+function getRoadWidth(type) {
+  const widths = {
+    motorway: 6, motorway_link: 5,
+    trunk: 5,
+    primary: 4.5, primary_link: 4,
+    secondary: 4, secondary_link: 3.5,
+    tertiary: 3.5,
+    residential: 3,
+    unclassified: 3,
+    service: 2.5,
+    footway: 2,
+    track: 2,
+    pedestrian: 3,
+    default: 3
+  };
+  return widths[type] || widths.default;
+}
+
+function distToSegment(px, py, x1, y1, x2, y2) {
+  let dx = x2 - x1, dy = y2 - y1;
+  let lenSq = dx*dx + dy*dy;
+  if (lenSq === 0) return sqrt((px-x1)*(px-x1) + (py-y1)*(py-y1));
+  let t = ((px-x1)*dx + (py-y1)*dy) / lenSq;
+  t = constrain(t, 0, 1);
+  let cx = x1 + t*dx, cy = y1 + t*dy;
+  return sqrt((px-cx)*(px-cx) + (py-cy)*(py-cy));
+}
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+}
+</script>
+</body>
+</html>
