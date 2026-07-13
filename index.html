@@ -3,193 +3,344 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>古蔺平行小城</title>
+<title>古蔺平行小城 - 探索闯关</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-html,body{width:100%;height:100%;overflow:hidden;font-family:"PingFang SC","Microsoft YaHei",sans-serif}
+*{margin:0;padding:0;box-sizing:border-box;font-family:"PingFang SC","Microsoft YaHei",sans-serif}
+html,body{width:100%;height:100%;overflow:hidden;background:#1a1a2e}
 #map{width:100%;height:100%}
-#header{position:fixed;top:0;left:0;right:0;z-index:1000;background:linear-gradient(180deg,rgba(26,26,46,0.95) 0%,rgba(26,26,46,0) 100%);padding:12px 16px 20px;pointer-events:none}
-#header h1{color:#f0c27a;font-size:18px;font-weight:bold;text-shadow:0 1px 4px rgba(0,0,0,0.5)}
-#header p{color:#ccc;font-size:11px;margin-top:2px}
-#player{position:fixed;z-index:500;pointer-events:none;font-size:24px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));display:none}
-#controls{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:1000;display:flex;gap:8px;background:rgba(0,0,0,0.5);backdrop-filter:blur(10px);padding:8px 12px;border-radius:20px}
-#controls button{background:rgba(255,255,255,0.15);border:none;color:#fff;width:40px;height:40px;border-radius:20px;font-size:18px;cursor:pointer;touch-action:none}
+#topbar{position:fixed;top:0;left:0;right:0;z-index:1000;background:linear-gradient(180deg,rgba(26,26,46,0.97) 0%,rgba(26,26,46,0) 100%);padding:10px 14px 24px;pointer-events:none;display:flex;justify-content:space-between;align-items:flex-start}
+#topbar h1{color:#f0c27a;font-size:16px;font-weight:bold}
+#topbar .score{color:#fff;font-size:12px;background:rgba(240,194,122,0.2);padding:3px 10px;border-radius:10px}
+#questPanel{position:fixed;top:60px;right:10px;z-index:1000;width:160px;background:rgba(0,0,0,0.85);backdrop-filter:blur(10px);border-radius:12px;padding:10px;color:#fff;font-size:12px;border:1px solid rgba(240,194,122,0.2);display:none}
+#questPanel .title{color:#f0c27a;font-weight:bold;font-size:13px;margin-bottom:6px}
+#questPanel .q{display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05)}
+#questPanel .q:last-child{border:none}
+#questPanel .q.done{color:#666;text-decoration:line-through}
+#questPanel .q.active{color:#7bed9f}
+#questPanel .q.locked{color:#444}
+#storyBox{position:fixed;bottom:90px;left:10px;right:10px;z-index:1000;background:rgba(0,0,0,0.85);backdrop-filter:blur(10px);border-radius:12px;padding:12px 14px;color:#fff;font-size:13px;border:1px solid rgba(240,194,122,0.3);display:none;max-width:400px;margin:0 auto;text-align:center}
+#storyBox .speaker{color:#f0c27a;font-weight:bold;margin-bottom:4px}
+#storyBox .text{color:#ddd;line-height:1.5}
+#storyBox .btn{display:inline-block;margin-top:8px;padding:6px 20px;background:#f0c27a;color:#1a1a2e;border:none;border-radius:8px;font-size:12px;font-weight:bold;cursor:pointer;pointer-events:auto}
+#controls{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:1000;display:flex;gap:8px;background:rgba(0,0,0,0.6);backdrop-filter:blur(10px);padding:8px 12px;border-radius:20px}
+#controls button{background:rgba(255,255,255,0.15);border:none;color:#fff;width:40px;height:40px;border-radius:20px;font-size:16px;cursor:pointer;touch-action:none}
 #controls button:active{background:rgba(240,194,122,0.3)}
-#controls .info-btn{background:rgba(240,194,122,0.2);width:auto;padding:0 16px;font-size:12px;color:#f0c27a}
-#popup{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:1000;background:rgba(0,0,0,0.8);backdrop-filter:blur(10px);color:#fff;padding:10px 20px;border-radius:12px;font-size:13px;text-align:center;display:none;max-width:80%;pointer-events:none}
-#popup .name{color:#f0c27a;font-weight:bold;font-size:15px}
-#popup .sub{color:#aaa;font-size:11px;margin-top:2px}
-.custom-marker{background:#f0c27a;border:2px solid #fff;border-radius:50%;width:12px;height:12px;box-shadow:0 2px 6px rgba(0,0,0,0.3)}
-.custom-marker.highlight{background:#ff6b6b;width:16px;height:16px;animation:pulse 2s infinite}
-@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,107,107,0.7)}70%{box-shadow:0 0 0 10px rgba(255,107,107,0)}100%{box-shadow:0 0 0 0 rgba(255,107,107,0)}}
+#controls .quest-btn{background:rgba(240,194,122,0.2);width:auto;padding:0 12px;font-size:11px;color:#f0c27a}
+#progressBar{position:fixed;top:48px;left:10px;right:10px;height:3px;z-index:1000;background:rgba(255,255,255,0.1);border-radius:2px;display:none}
+#progressBar .fill{height:100%;background:linear-gradient(90deg,#f0c27a,#ff6b6b);border-radius:2px;transition:width 0.5s}
 </style>
 </head>
 <body>
 <div id="map"></div>
-<div id="header">
-  <h1>🏘️ 古蔺平行小城</h1>
-  <p>四川省泸州市古蔺县 · 地图数据 © OpenStreetMap 贡献者</p>
+<div id="topbar">
+  <div><h1>🏘️ 古蔺平行小城</h1></div>
+  <div class="score">⭐ <span id="starCount">0</span></div>
 </div>
-<div id="player">🚗</div>
-<div id="popup"></div>
+<div id="progressBar"><div class="fill" id="progressFill" style="width:0%"></div></div>
+<div id="questPanel">
+  <div class="title">📋 闯关任务</div>
+  <div id="questList"></div>
+</div>
+<div id="storyBox">
+  <div class="speaker" id="storySpeaker"></div>
+  <div class="text" id="storyText"></div>
+  <button class="btn" id="storyBtn">知道了</button>
+</div>
 <div id="controls">
-  <button id="btnGoto">📍</button>
-  <button id="btnLandmark">🏛️</button>
-  <button class="info-btn" id="btnInfo">已加载</button>
-  <button id="btnPlus">＋</button>
-  <button id="btnMinus">－</button>
+  <button id="btnQuest">📋</button>
+  <button id="btnCar">🚗</button>
+  <button id="btnLandmark">🎯</button>
+  <button class="quest-btn" id="btnReset">重新开始</button>
 </div>
 <script>
-// 古蔺县中心
-const center = [27.967, 105.931];
-const zoom = 13;
+// 古蔺县配置
+const CENTER = [27.967, 105.931];
+const GAME_DATA = {
+  playerStart: [27.940, 105.813],
+  quests: [
+    { id:'q1', title:'初到古蔺', desc:'从县城出发，前往天立酒街', target:[27.938,105.815], reward:1, npc:'酒街掌柜', dialog:'欢迎来到天立酒街！我们古蔺的酱酒可是远近闻名啊~先熟悉一下环境吧。' },
+    { id:'q2', title:'红色记忆', desc:'开车到太平渡，感受红色文化', target:[28.068,105.942], reward:2, npc:'红军后人', dialog:'当年红军四渡赤水，太平渡是重要渡口。来这里打个卡吧！' },
+    { id:'q3', title:'美酒之旅', desc:'前往二郎镇，探访酱酒之乡', target:[28.038,106.018], reward:3, npc:'酿酒师傅', dialog:'二郎镇是酱酒的核心产区，跟我学酿酒手艺吧！' },
+    { id:'q4', title:'森林秘境', desc:'探索黄荆老林原始森林', target:[28.080,105.783], reward:2, npc:'护林员', dialog:'黄荆老林是天然氧吧，来感受大自然的魅力！' },
+    { id:'q5', title:'新城区探秘', desc:'打卡古蔺新体育中心', target:[27.948,105.808], reward:2, npc:'体育中心管理员', dialog:'这是我们古蔺的新地标，漂亮吧！' },
+    { id:'q6', title:'酒乡物流', desc:'送到茅溪镇一批酱酒', target:[27.930,106.068], reward:4, npc:'物流站长老王', dialog:'这批酒要送到茅溪镇的仓储基地，路上小心！' },
+    { id:'q7', title:'古蔺通', desc:'在兴隆公园看古蔺全景', target:[27.935,105.805], reward:3, npc:'退休教师李老师', dialog:'在兴隆公园可以看到整个古蔺县城，美极了！' },
+    { id:'q8', title:'圆满之旅', desc:'回到古蔺县政府，完成全部冒险', target:[27.940,105.812], reward:5, npc:'县长', dialog:'欢迎回来！你已经成为真正的古蔺通了！🎉' }
+  ]
+};
+
+// 游戏状态
+let state = {
+  playerPos: GAME_DATA.playerStart,
+  currentQuest: 0,      // 当前进行到的任务index
+  completedQuests: [],   // 已完成的任务id列表
+  stars: 0,
+  isMoving: false,
+  questPanelOpen: false
+};
 
 // 初始化地图
 const map = L.map('map', {
-  center: center,
-  zoom: zoom,
+  center: CENTER,
+  zoom: 13,
   zoomControl: false,
   attributionControl: false
 });
 
-// 使用CartoDB免费底图（比OSM默认好看）
 L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+  attribution: '&copy; OSM & CARTO',
   subdomains: 'abcd',
-  maxZoom: 19,
-  minZoom: 10
+  maxZoom: 19
 }).addTo(map);
 
-// 添加古蔺县边界（从OSM数据提取的简化边界）
-// 实际开发中从OSM拉取真实边界
-const gulinBounds = L.polygon([
-  [28.12, 105.75],
-  [28.10, 106.05],
-  [27.85, 106.08],
-  [27.90, 105.78]
-], {
-  color: '#f0c27a',
-  weight: 2,
-  fill: true,
-  fillColor: '#f0c27a',
-  fillOpacity: 0.05,
-  dashArray: '5,5'
+// 古蔺边界
+L.polygon([[28.12,105.75],[28.10,106.05],[27.85,106.08],[27.90,105.78]],{
+  color:'#f0c27a', weight:2, fill:true, fillColor:'#f0c27a', fillOpacity:0.05, dashArray:'5,5'
 }).addTo(map);
 
-// 关键地标数据
-const landmarks = [
-  { name: '古蔺县人民政府', pos: [27.940, 105.812], type: 'government', desc: '县城中心' },
-  { name: '古蔺新体育中心', pos: [27.948, 105.808], type: 'sports', desc: '西区新城' },
-  { name: '天立酒街', pos: [27.938, 105.815], type: 'wine', desc: '酱酒文化街区' },
-  { name: '太平渡', pos: [28.068, 105.942], type: 'red', desc: '红军四渡赤水纪念地' },
-  { name: '二郎镇', pos: [28.038, 106.018], type: 'wine', desc: '酱酒名镇' },
-  { name: '黄荆老林', pos: [28.080, 105.783], type: 'nature', desc: '原始森林景区' },
-  { name: '兴隆公园', pos: [27.935, 105.805], type: 'park', desc: '市民休闲公园' },
-  { name: '古蔺汽车站', pos: [27.938, 105.820], type: 'transport', desc: '县城客运中心' },
-  { name: '茅溪镇', pos: [27.930, 106.068], type: 'wine', desc: '酱酒仓储物流基地' },
-  { name: '红军街', pos: [28.040, 106.020], type: 'red', desc: '二郎镇红色街区' }
-];
-
-// 地标图标映射
-const iconMap = {
-  government: '🏛️', sports: '🏟️', wine: '🍶', red: '⭐',
-  nature: '🌲', park: '🌳', transport: '🚌'
-};
-
-const colorMap = {
-  government: '#f0c27a', sports: '#4ecdc4', wine: '#ff6b6b',
-  red: '#ff4757', nature: '#2ed573', park: '#7bed9f', transport: '#70a1ff'
-};
-
-// 添加地标标记
-const markers = [];
-landmarks.forEach(lm => {
-  const marker = L.circleMarker(lm.pos, {
-    radius: 8,
-    fillColor: colorMap[lm.type] || '#f0c27a',
-    color: '#fff',
-    weight: 2,
-    opacity: 1,
-    fillOpacity: 0.9
-  }).addTo(map);
-  
-  marker.bindTooltip(`${iconMap[lm.type] || '📍'} ${lm.name}`, {
-    direction: 'top',
-    offset: [0, -8]
-  });
-  
-  marker.on('click', () => {
-    showPopup(lm);
-  });
-  
-  markers.push(marker);
+// 玩家车辆
+const carIcon = L.divIcon({
+  html: '🚗',
+  className: '',
+  iconSize: [24, 24],
+  iconAnchor: [12, 12]
 });
 
-// 弹出信息
-function showPopup(lm) {
-  const popup = document.getElementById('popup');
-  popup.innerHTML = `
-    <div class="name">${iconMap[lm.type] || '📍'} ${lm.name}</div>
-    <div class="sub">${lm.desc}</div>
-  `;
-  popup.style.display = 'block';
-  setTimeout(() => { popup.style.display = 'none'; }, 3000);
+let playerMarker = L.marker(state.playerPos, { icon: carIcon, zIndexOffset: 1000 }).addTo(map);
+playerMarker.bindTooltip('你在这里', { direction: 'top', offset: [0, -10] });
+
+// NPC标记（任务目标点）
+let npcMarkers = [];
+
+// 地标数据
+const landmarks = [
+  { name:'古蔺县人民政府', pos:[27.940,105.812], emoji:'🏛️' },
+  { name:'新体育中心', pos:[27.948,105.808], emoji:'🏟️' },
+  { name:'天立酒街', pos:[27.938,105.815], emoji:'🍶' },
+  { name:'太平渡', pos:[28.068,105.942], emoji:'⭐' },
+  { name:'二郎镇', pos:[28.038,106.018], emoji:'🏺' },
+  { name:'黄荆老林', pos:[28.080,105.783], emoji:'🌲' },
+  { name:'兴隆公园', pos:[27.935,105.805], emoji:'🌳' },
+  { name:'茅溪镇', pos:[27.930,106.068], emoji:'📦' }
+];
+
+// 添加地标
+landmarks.forEach(lm => {
+  L.circleMarker(lm.pos, {
+    radius: 6, fillColor: '#f0c27a', color: '#fff', weight: 2, fillOpacity: 0.8
+  }).addTo(map).bindTooltip(`${lm.emoji} ${lm.name}`, { direction:'top' });
+});
+
+// 距离计算
+function dist(pos1, pos2) {
+  const R = 6371000;
+  const dLat = (pos2[0]-pos1[0]) * Math.PI / 180;
+  const dLon = (pos2[1]-pos1[1]) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(pos1[0]*Math.PI/180)*Math.cos(pos2[0]*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
-// 玩家定位
-let playerPos = center;
-let playerMarker = null;
-
-function updatePlayer() {
-  if (playerMarker) map.removeLayer(playerMarker);
-  playerMarker = L.circleMarker(playerPos, {
-    radius: 10,
-    fillColor: '#ffd700',
-    color: '#fff',
-    weight: 3,
-    fillOpacity: 0.9
-  }).addTo(map);
-  playerMarker.bindTooltip('🚗 你在这里', { direction: 'top' });
+// NPC任务点
+function createNpcMarkers() {
+  npcMarkers.forEach(m => map.removeLayer(m));
+  npcMarkers = [];
+  
+  GAME_DATA.quests.forEach((q, i) => {
+    if (i < state.currentQuest) return; // 已完成
+    if (i > state.currentQuest) return; // 未解锁
+    
+    const npcIcon = L.divIcon({
+      html: '💬',
+      className: '',
+      iconSize: [20, 20],
+      iconAnchor: [10, 10]
+    });
+    
+    const m = L.marker(q.target, { icon: npcIcon }).addTo(map);
+    m.bindTooltip(q.npc, { direction: 'top' });
+    m.on('click', () => interactWithNpc(i));
+    npcMarkers.push(m);
+  });
 }
 
-// 显示地图已加载
-document.getElementById('btnInfo').textContent = `✅ 加载完成`;
+// 与NPC交互
+function interactWithNpc(questIdx) {
+  const q = GAME_DATA.quests[questIdx];
+  if (!q) return;
+  
+  const d = dist(state.playerPos, q.target);
+  if (d > 200) {
+    showStory('提示', `距离太远了（${Math.round(d)}m），先开车过来吧！`);
+    return;
+  }
+  
+  // 完成任务
+  state.completedQuests.push(q.id);
+  state.stars += q.reward;
+  state.currentQuest = questIdx + 1;
+  
+  document.getElementById('starCount').textContent = state.stars;
+  
+  showStory(`🎉 任务完成！+${q.reward}⭐`, q.dialog);
+  updateUI();
+  
+  // 如果还有下一个任务
+  if (state.currentQuest < GAME_DATA.quests.length) {
+    setTimeout(() => {
+      const nextQ = GAME_DATA.quests[state.currentQuest];
+      showStory(`📢 新任务：${nextQ.title}`, `${nextQ.npc}：${nextQ.dialog}`);
+      createNpcMarkers();
+    }, 2000);
+  } else {
+    setTimeout(() => {
+      showStory('🎊 恭喜通关！', '你已经完成了古蔺平行小城的所有闯关任务！你才是真正的古蔺通！');
+      document.getElementById('progressFill').style.width = '100%';
+    }, 2000);
+  }
+}
+
+// 开车到目标点
+function driveTo(pos) {
+  if (state.isMoving) return;
+  state.isMoving = true;
+  document.getElementById('btnCar').textContent = '⏳';
+  
+  const start = state.playerPos;
+  const end = pos;
+  const steps = 50;
+  let step = 0;
+  
+  function moveStep() {
+    step++;
+    const t = step / steps;
+    const lat = start[0] + (end[0] - start[0]) * t;
+    const lng = start[1] + (end[1] - start[1]) * t;
+    state.playerPos = [lat, lng];
+    playerMarker.setLatLng(state.playerPos);
+    map.panTo(state.playerPos, { animate: true, duration: 0.1 });
+    
+    if (step < steps) {
+      requestAnimationFrame(moveStep);
+    } else {
+      state.isMoving = false;
+      document.getElementById('btnCar').textContent = '🚗';
+      
+      // 检查是否到达任务目标
+      const q = GAME_DATA.quests[state.currentQuest];
+      if (q) {
+        const d = dist(state.playerPos, q.target);
+        if (d < 150) {
+          interactWithNpc(state.currentQuest);
+        }
+      }
+    }
+  }
+  
+  moveStep();
+}
+
+// 显示对话
+function showStory(speaker, text) {
+  const box = document.getElementById('storyBox');
+  document.getElementById('storySpeaker').textContent = speaker;
+  document.getElementById('storyText').textContent = text;
+  box.style.display = 'block';
+  
+  document.getElementById('storyBtn').onclick = () => {
+    box.style.display = 'none';
+  };
+}
+
+// 更新UI
+function updateUI() {
+  // 进度条
+  const progress = state.currentQuest / GAME_DATA.quests.length * 100;
+  document.getElementById('progressFill').style.width = Math.min(progress, 100) + '%';
+  document.getElementById('progressBar').style.display = 'block';
+  
+  // 任务面板
+  const list = document.getElementById('questList');
+  list.innerHTML = '';
+  GAME_DATA.quests.forEach((q, i) => {
+    const div = document.createElement('div');
+    div.className = 'q';
+    if (state.completedQuests.includes(q.id)) div.classList.add('done');
+    else if (i === state.currentQuest) div.classList.add('active');
+    else div.classList.add('locked');
+    div.textContent = `${state.completedQuests.includes(q.id) ? '✅' : i === state.currentQuest ? '▶️' : '🔒'} ${q.title}`;
+    list.appendChild(div);
+  });
+}
+
+// 启动游戏
+function startGame() {
+  const firstQ = GAME_DATA.quests[0];
+  showStory(`🎮 欢迎来到古蔺平行小城！`, 
+    `你开车来到了古蔺县。${firstQ.npc}正在天立酒街等你。\n\n先点击地图上的目标位置，再点击 🚗 按钮开车过去！`);
+  createNpcMarkers();
+  updateUI();
+  
+  // 显示任务面板
+  document.getElementById('questPanel').style.display = 'block';
+}
 
 // 控件事件
-document.getElementById('btnGoto').addEventListener('click', () => {
-  // 模拟定位到县城中心
-  playerPos = [center[0] + (Math.random()-0.5)*0.02, center[1] + (Math.random()-0.5)*0.02];
-  updatePlayer();
-  map.flyTo(playerPos, 15);
+document.getElementById('btnCar').addEventListener('click', () => {
+  const q = GAME_DATA.quests[state.currentQuest];
+  if (q) {
+    driveTo(q.target);
+  } else {
+    // 随机驾驶
+    const lm = landmarks[Math.floor(Math.random() * landmarks.length)];
+    driveTo(lm.pos);
+  }
+});
+
+document.getElementById('btnQuest').addEventListener('click', () => {
+  state.questPanelOpen = !state.questPanelOpen;
+  document.getElementById('questPanel').style.display = state.questPanelOpen ? 'block' : 'none';
 });
 
 document.getElementById('btnLandmark').addEventListener('click', () => {
-  // 随机跳转到一个地标
-  const lm = landmarks[Math.floor(Math.random() * landmarks.length)];
-  map.flyTo(lm.pos, 16);
-  setTimeout(() => showPopup(lm), 1000);
+  const q = GAME_DATA.quests[state.currentQuest];
+  if (q) {
+    map.flyTo(q.target, 15);
+  }
 });
 
-document.getElementById('btnPlus').addEventListener('click', () => {
-  map.zoomIn();
+document.getElementById('btnReset').addEventListener('click', () => {
+  if (confirm('确定重新开始吗？所有进度将丢失。')) {
+    state.playerPos = GAME_DATA.playerStart;
+    state.currentQuest = 0;
+    state.completedQuests = [];
+    state.stars = 0;
+    state.isMoving = false;
+    playerMarker.setLatLng(state.playerPos);
+    map.setView(CENTER, 13);
+    document.getElementById('starCount').textContent = '0';
+    createNpcMarkers();
+    updateUI();
+    startGame();
+  }
 });
 
-document.getElementById('btnMinus').addEventListener('click', () => {
-  map.zoomOut();
+// 点击地图开车
+map.on('click', (e) => {
+  driveTo([e.latlng.lat, e.latlng.lng]);
 });
 
 // 键盘
 window.addEventListener('keydown', (e) => {
-  if (e.key === '+' || e.key === '=') map.zoomIn();
-  if (e.key === '-') map.zoomOut();
-  if (e.key === 'g') document.getElementById('btnGoto').click();
-  if (e.key === 'l') document.getElementById('btnLandmark').click();
+  if (e.key === 'q' || e.key === 'Q') document.getElementById('btnQuest').click();
+  if (e.key === 'd' || e.key === 'D') document.getElementById('btnCar').click();
+  if (e.key === 't' || e.key === 'T') document.getElementById('btnLandmark').click();
+  if (e.key === 'r' || e.key === 'R') document.getElementById('btnReset').click();
 });
 
-// 初始化
-updatePlayer();
+// 启动
+startGame();
 </script>
 </body>
 </html>
