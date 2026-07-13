@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>古蔺平行小城 - 设计原型</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0f172a;font-family:"PingFang SC","Microsoft YaHei",-apple-system,sans-serif;display:flex;flex-direction:column;align-items:center;padding:16px;min-height:100vh}
+.header{width:100%;max-width:400px;text-align:center;margin-bottom:16px}
+.header h1{color:#f0c27a;font-size:20px;font-weight:bold}
+.header .sub{color:#64748b;font-size:11px;margin-top:2px}
+.phone-frame{width:100%;max-width:390px;background:#1e293b;border-radius:24px;overflow:hidden;box-shadow:0 0 40px rgba(240,194,122,0.1);border:1px solid rgba(240,194,122,0.15);position:relative}
+.screen{position:relative;width:100%;aspect-ratio:390/844;background:linear-gradient(180deg,#1a1a2e 0%,#16213e 40%,#0f3460 100%);overflow:hidden}
+
+/* 模拟3D地图背景 */
+.map-bg{position:absolute;inset:0;overflow:hidden}
+.map-bg .terrain{position:absolute;bottom:0;left:0;right:0;height:60%}
+.map-bg .terrain .hill{position:absolute;border-radius:50%}
+.map-bg .terrain .hill:nth-child(1){width:300px;height:180px;background:linear-gradient(180deg,rgba(34,197,94,0.3),rgba(34,197,94,0.05));bottom:-40px;left:-60px}
+.map-bg .terrain .hill:nth-child(2){width:250px;height:200px;background:linear-gradient(180deg,rgba(34,197,94,0.25),rgba(34,197,94,0.05));bottom:-30px;right:-40px}
+.map-bg .terrain .hill:nth-child(3){width:180px;height:140px;background:linear-gradient(180deg,rgba(34,197,94,0.2),rgba(34,197,94,0.05));bottom:20px;left:40%}
+.map-bg .road{position:absolute;background:rgba(255,255,255,0.08);transform-origin:center}
+.map-bg .road:nth-child(4){width:60%;height:4px;top:50%;left:20%;transform:rotate(-15deg);border-radius:2px}
+.map-bg .road:nth-child(5){width:40%;height:3px;top:55%;left:50%;transform:rotate(25deg);border-radius:2px}
+.map-bg .road:nth-child(6){width:35%;height:3px;top:60%;left:10%;transform:rotate(-5deg);border-radius:2px}
+.map-bg .road:nth-child(7){width:25%;height:3px;top:65%;right:15%;transform:rotate(10deg);border-radius:2px}
+
+/* 模拟3D建筑 */
+.buildings-3d{position:absolute;inset:0}
+.bld{position:absolute;border-radius:2px;transform-style:preserve-3d}
+.bld-1{width:24px;height:32px;background:linear-gradient(180deg,rgba(200,180,150,0.5),rgba(200,180,150,0.2));bottom:45%;left:25%;box-shadow:-2px 0 0 rgba(200,180,150,0.3),2px 0 0 rgba(200,180,150,0.1)}
+.bld-2{width:18px;height:24px;background:linear-gradient(180deg,rgba(200,180,150,0.4),rgba(200,180,150,0.15));bottom:48%;left:35%;box-shadow:-2px 0 0 rgba(200,180,150,0.3)}
+.bld-3{width:30px;height:20px;background:linear-gradient(180deg,rgba(200,180,150,0.35),rgba(200,180,150,0.1));bottom:50%;right:28%;box-shadow:-2px 0 0 rgba(200,180,150,0.25)}
+.bld-4{width:15px;height:28px;background:linear-gradient(180deg,rgba(200,180,150,0.45),rgba(200,180,150,0.15));bottom:42%;right:40%;box-shadow:-2px 0 0 rgba(200,180,150,0.3)}
+.bld-5{width:20px;height:18px;background:linear-gradient(180deg,rgba(200,180,150,0.3),rgba(200,180,150,0.1));bottom:55%;left:15%}
+.bld-6{width:35px;height:40px;background:linear-gradient(180deg,rgba(200,180,150,0.5),rgba(200,180,150,0.2));bottom:35%;right:15%;box-shadow:-3px 0 0 rgba(200,180,150,0.3),3px 0 0 rgba(200,180,150,0.1)}
+.bld-7{width:12px;height:16px;background:rgba(200,180,150,0.3);bottom:52%;left:50%}
+.bld-8{width:22px;height:14px;background:rgba(200,180,150,0.25);bottom:58%;left:60%}
+
+/* 远处山脉 */
+.mountains{position:absolute;bottom:55%;left:0;right:0;height:100px}
+.mountains div{position:absolute;bottom:0;width:100px;height:60px;background:rgba(100,120,140,0.15);border-radius:50% 50% 0 0}
+.mountains div:nth-child(1){left:-10px;height:80px;width:130px}
+.mountains div:nth-child(2){left:60px;height:100px;width:160px}
+.mountains div:nth-child(3){left:150px;height:70px;width:120px}
+.mountains div:nth-child(4){left:220px;height:90px;width:140px}
+.mountains div:nth-child(5){left:300px;height:65px;width:110px}
+
+/* 太阳/光照 */
+.sun{position:absolute;top:15%;right:12%;width:60px;height:60px;border-radius:50%;background:radial-gradient(circle,rgba(240,194,122,0.6),rgba(240,194,122,0.1));filter:blur(10px)}
+.sun::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:30px;height:30px;border-radius:50%;background:radial-gradient(circle,rgba(255,220,150,0.8),transparent);filter:blur(3px)}
+
+/* 顶部状态栏 */
+.status-bar{position:absolute;top:0;left:0;right:0;padding:8px 16px 12px;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(180deg,rgba(15,23,42,0.95) 0%,transparent 100%);z-index:10}
+.status-bar .title{color:#f0c27a;font-size:14px;font-weight:bold}
+.status-bar .stars{color:#fff;font-size:12px;background:rgba(240,194,122,0.2);padding:2px 10px;border-radius:10px;font-size:11px}
+
+/* 进度条 */
+.progress{position:absolute;top:38px;left:16px;right:16px;height:3px;background:rgba(255,255,255,0.1);border-radius:2px;z-index:10}
+.progress .fill{height:100%;width:25%;background:linear-gradient(90deg,#f0c27a,#ff6b6b);border-radius:2px}
+
+/* NPC对话面板 */
+.dialog{position:absolute;bottom:90px;left:12px;right:12px;background:rgba(15,23,42,0.92);backdrop-filter:blur(12px);border-radius:16px;padding:14px 16px;border:1px solid rgba(240,194,122,0.2);z-index:20;max-width:366px;margin:0 auto}
+.dialog .speaker{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.dialog .speaker .avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#f0c27a,#ff6b6b);display:flex;align-items:center;justify-content:center;font-size:14px}
+.dialog .speaker .name{color:#f0c27a;font-size:13px;font-weight:bold}
+.dialog .speaker .tag{background:rgba(240,194,122,0.15);color:#f0c27a;font-size:9px;padding:1px 6px;border-radius:4px}
+.dialog .text{color:#cbd5e1;font-size:13px;line-height:1.6}
+.dialog .btn{display:block;width:100%;margin-top:10px;padding:8px;background:linear-gradient(135deg,#f0c27a,#e2a845);border:none;border-radius:10px;color:#0f172a;font-size:13px;font-weight:bold;text-align:center;cursor:pointer}
+
+/* 底部控制栏 */
+.bottom-bar{position:absolute;bottom:12px;left:12px;right:12px;z-index:15;display:flex;gap:8px;max-width:366px;margin:0 auto}
+.bottom-bar .btn{flex:1;background:rgba(15,23,42,0.8);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:10px 0;text-align:center;color:#fff;font-size:11px;cursor:pointer;transition:all 0.2s}
+.bottom-bar .btn:active{background:rgba(240,194,122,0.2);border-color:rgba(240,194,122,0.3)}
+.bottom-bar .btn .icon{font-size:18px;display:block;margin-bottom:2px}
+.bottom-bar .btn.primary{background:linear-gradient(135deg,rgba(240,194,122,0.3),rgba(226,168,69,0.3));border-color:rgba(240,194,122,0.3)}
+
+/* 任务面板 */
+.quest-panel{position:absolute;top:50px;right:8px;z-index:15;background:rgba(15,23,42,0.9);backdrop-filter:blur(12px);border:1px solid rgba(240,194,122,0.2);border-radius:12px;padding:8px 10px;width:140px}
+.quest-panel .title{color:#f0c27a;font-size:11px;font-weight:bold;margin-bottom:4px}
+.quest-item{font-size:10px;padding:3px 0;display:flex;align-items:center;gap:4px;border-bottom:1px solid rgba(255,255,255,0.03)}
+.quest-item:last-child{border:none}
+.quest-item.done{color:#7bed9f}
+.quest-item.active{color:#f0c27a;font-weight:bold}
+.quest-item.locked{color:#475569}
+.quest-item .dot{width:4px;height:4px;border-radius:50%;flex-shrink:0}
+.quest-item .dot.done{background:#7bed9f}
+.quest-item .dot.active{background:#f0c27a}
+.quest-item .dot.locked{background:#475569}
+
+/* 小地图 */
+.minimap{position:absolute;top:50px;left:8px;z-index:15;width:60px;height:60px;border-radius:10px;background:rgba(15,23,42,0.8);border:1px solid rgba(255,255,255,0.1);overflow:hidden}
+.minimap .dot{position:absolute;width:4px;height:4px;border-radius:50%;background:#f0c27a;top:50%;left:40%;box-shadow:0 0 4px rgba(240,194,122,0.5)}
+.minimap .north{position:absolute;top:4px;left:50%;transform:translateX(-50%);color:#64748b;font-size:7px}
+
+/* 车辆标记 */
+.car-marker{position:absolute;bottom:48%;left:38%;z-index:12;font-size:22px;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.6));transform:rotate(-15deg)}
+.car-glow{position:absolute;bottom:calc(48% - 2px);left:calc(38% + 4px);width:20px;height:20px;border-radius:50%;background:radial-gradient(circle,rgba(240,194,122,0.3),transparent);z-index:11}
+
+/* 导航指示 */
+.nav-arrow{position:absolute;top:38%;right:30%;z-index:12;font-size:24px;color:#f0c27a;opacity:0.7;animation:bounce 1.5s infinite}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+
+/* 建筑物标签 */
+.bld-label{position:absolute;color:rgba(255,255,255,0.5);font-size:7px;white-space:nowrap}
+.bld-label.l1{bottom:calc(45% + 32px);left:calc(25% - 4px)}
+.bld-label.l2{bottom:calc(48% + 24px);left:calc(35% - 8px)}
+.bld-label.l3{bottom:calc(50% + 20px);right:calc(28% - 12px)}
+
+/* 街道名称 */
+street-label{position:absolute;color:rgba(255,255,255,0.15);font-size:6px;letter-spacing:2px;text-transform:uppercase}
+street-label.s1{top:48%;left:22%;transform:rotate(-15deg)}
+street-label.s2{top:53%;right:18%;transform:rotate(10deg)}
+
+/* 设计标注 */
+.annotation{position:absolute;z-index:30;pointer-events:none}
+.annotation .line{position:absolute;border-top:1px dashed rgba(240,194,122,0.4);width:60px}
+.annotation .text{position:absolute;color:#f0c27a;font-size:8px;white-space:nowrap}
+
+/* 页面标注层 - 指示当前是设计稿 */
+.design-note{position:absolute;top:4px;left:50%;transform:translateX(-50%);z-index:50;background:rgba(240,194,122,0.9);color:#0f172a;font-size:9px;padding:2px 10px;border-radius:4px;font-weight:bold;letter-spacing:1px}
+
+.version-tag{position:absolute;bottom:0;right:0;z-index:50;background:rgba(0,0,0,0.6);color:#64748b;font-size:7px;padding:2px 6px;border-radius:4px 0 0 0}
+
+/* 流程步骤指示器 */
+.steps{display:flex;gap:8px;margin:16px 0;max-width:400px;width:100%;overflow-x:auto;padding:4px 0}
+.step{flex-shrink:0;padding:6px 12px;border-radius:8px;font-size:10px;text-align:center;min-width:60px}
+.step.active{background:rgba(240,194,122,0.2);border:1px solid rgba(240,194,122,0.3);color:#f0c27a}
+.step.done{background:rgba(126,237,159,0.1);border:1px solid rgba(126,237,159,0.2);color:#7bed9f}
+.step.pending{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);color:#64748b}
+.step .num{display:block;font-weight:bold;font-size:12px;margin-bottom:2px}
+.step .label{font-size:8px}
+
+/* 底部说明 */
+.footer-text{max-width:400px;margin-top:12px;padding:12px;background:rgba(30,41,59,0.5);border-radius:12px;border:1px solid rgba(255,255,255,0.05)}
+.footer-text p{font-size:11px;color:#94a3b8;line-height:1.6;margin-bottom:4px}
+.footer-text .highlight{color:#f0c27a;font-weight:bold}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🏘️ 古蔺平行小城</h1>
+  <div class="sub">设计原型 v0.4 · 手机端效果预览</div>
+</div>
+
+<!-- 步骤指示 -->
+<div class="steps">
+  <div class="step done"><span class="num">✅</span><span class="label">设计稿</span></div>
+  <div class="step pending"><span class="num">2</span><span class="label">3D地图</span></div>
+  <div class="step pending"><span class="num">3</span><span class="label">街道模拟</span></div>
+  <div class="step pending"><span class="num">4</span><span class="label">任务系统</span></div>
+  <div class="step pending"><span class="num">5</span><span class="label">上线</span></div>
+</div>
+
+<div class="phone-frame">
+  <div class="screen" id="gameScreen">
+    
+    <!-- 设计标注 - 当前是设计稿 -->
+    <div class="design-note">📐 设计稿 · 非游戏</div>
+    
+    <!-- 3D地图背景 -->
+    <div class="map-bg">
+      <div class="terrain">
+        <div class="hill"></div>
+        <div class="hill"></div>
+        <div class="hill"></div>
+        <div class="road"></div>
+        <div class="road"></div>
+        <div class="road"></div>
+        <div class="road"></div>
+      </div>
+      <div class="mountains">
+        <div></div><div></div><div></div><div></div><div></div>
+      </div>
+      <div class="sun"></div>
+    </div>
+    
+    <!-- 3D建筑群 -->
+    <div class="buildings-3d">
+      <div class="bld bld-1"></div>
+      <div class="bld bld-2"></div>
+      <div class="bld bld-3"></div>
+      <div class="bld bld-4"></div>
+      <div class="bld bld-5"></div>
+      <div class="bld bld-6"></div>
+      <div class="bld bld-7"></div>
+      <div class="bld bld-8"></div>
+    </div>
+    
+    <!-- 建筑标签 -->
+    <div class="bld-label l1">🏛️ 县政府</div>
+    <div class="bld-label l2">🍶 天立酒街</div>
+    <div class="bld-label l3">🏟️ 体育中心</div>
+    
+    <!-- 街道名 -->
+    <div class="street-label s1">—— 府前街 ——</div>
+    <div class="street-label s2">—— 西区大道 ——</div>
+    
+    <!-- 玩家车辆（3D俯视图） -->
+    <div class="car-glow"></div>
+    <div class="car-marker">🚗</div>
+    
+    <!-- 导航指示箭头 -->
+    <div class="nav-arrow">📍</div>
+    
+    <!-- 顶部状态栏 -->
+    <div class="status-bar">
+      <div class="title">🏘️ 古蔺平行小城</div>
+      <div class="stars">⭐ 12</div>
+    </div>
+    
+    <!-- 进度条 -->
+    <div class="progress"><div class="fill"></div></div>
+    
+    <!-- 小地图 -->
+    <div class="minimap">
+      <div class="north">N</div>
+      <div class="dot"></div>
+    </div>
+    
+    <!-- 任务面板 -->
+    <div class="quest-panel">
+      <div class="title">📋 第3关 · 美酒之旅</div>
+      <div class="quest-item done"><span class="dot done"></span>初到古蔺</div>
+      <div class="quest-item done"><span class="dot done"></span>红色记忆</div>
+      <div class="quest-item active"><span class="dot active"></span>美酒之旅 ▶</div>
+      <div class="quest-item locked"><span class="dot locked"></span>森林秘境</div>
+      <div class="quest-item locked"><span class="dot locked"></span>新城探秘</div>
+    </div>
+    
+    <!-- NPC对话 -->
+    <div class="dialog">
+      <div class="speaker">
+        <div class="avatar">👨</div>
+        <div>
+          <div class="name">酿酒师傅 <span class="tag">任务NPC</span></div>
+        </div>
+      </div>
+      <div class="text">欢迎来到二郎镇！我们古蔺酱酒有百年历史，来酒窖看看吧，我教你分辨不同年份的基酒。</div>
+      <div class="btn">🎯 导航到二郎镇酒窖 (1.2km)</div>
+    </div>
+    
+    <!-- 底部控制栏 -->
+    <div class="bottom-bar">
+      <div class="btn"><span class="icon">🗺️</span>地图</div>
+      <div class="btn primary"><span class="icon">🚗</span>导航驾驶</div>
+      <div class="btn"><span class="icon">📋</span>任务</div>
+      <div class="btn"><span class="icon">👤</span>我的</div>
+    </div>
+    
+    <div class="version-tag">v0.4 设计原型</div>
+  </div>
+</div>
+
+<!-- 底部说明 -->
+<div class="footer-text">
+  <p><span class="highlight">🎯 设计说明：</span>当前是<strong>视觉设计原型</strong>，展示最终游戏的UI布局和交互样式。</p>
+  <p>下一步：你确认这个设计方向后，我按这个样式用 <span class="highlight">Mapbox GL 3D</span> 引擎搭建真实3D场景，再叠加闯关系统。</p>
+  <p style="font-size:10px;color:#64748b;margin-top:6px">© Map data OpenStreetMap contributors · 设计稿 v0.4 · 季文杰</p>
+</div>
+
+<script>
+// 手机触屏震动反馈
+document.querySelectorAll('.btn, .dialog .btn').forEach(el => {
+  el.addEventListener('click', function() {
+    if (navigator.vibrate) navigator.vibrate(10);
+    this.style.transform = 'scale(0.95)';
+    setTimeout(() => this.style.transform = '', 150);
+  });
+});
+</script>
+
+</body>
+</html>
